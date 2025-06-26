@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChessVision - Piece Recognition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Montserrat:wght@300;400;600&display=swap');
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-image:
+                linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)),
+                url('https://images.unsplash.com/photo-1543092587-d8b8feaf9623?q=80&w=2940&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+
+        .chess-board-pattern {
+            background-image:
+                linear-gradient(45deg, rgba(30, 41, 59, 0.1) 25%, transparent 25%),
+                linear-gradient(-45deg, rgba(30, 41, 59, 0.1) 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, rgba(30, 41, 59, 0.1) 75%),
+                linear-gradient(-45deg, transparent 75%, rgba(30, 41, 59, 0.1) 75%);
+            background-size: 60px 60px;
+            background-position: 0 0, 0 30px, 30px -30px, -30px 0px;
+        }
+
+        .upload-area {
+            border: 2px dashed #cbd5e1;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover {
+            border-color: #94a3b8;
+            background-color: rgba(241, 245, 249, 0.1);
+        }
+
+        .upload-area.dragover {
+            border-color: #f59e0b;
+            background-color: rgba(245, 158, 11, 0.1);
+        }
+
+        .chess-piece-icon {
+            filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
+        }
+
+        .result-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(226, 232, 240, 0.9) 100%);
+            backdrop-filter: blur(5px);
+        }
+         .hidden {
+            display: none;
+        }
+         #imagePreview {
+            max-height: 256px; /* Limit height to avoid giant previews */
+         }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl">
+        <div class="bg-white/90 backdrop-blur-md rounded-xl shadow-2xl overflow-hidden chess-board-pattern">
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-amber-800 to-amber-600 p-6 text-center">
+                <div class="flex items-center justify-center space-x-3">
+                    <i class="fas fa-chess-queen text-3xl text-white"></i>
+                    <h1 class="text-3xl font-bold text-white font-cinzel tracking-wider">ChessVision</h1>
+                </div>
+                <p class="text-amber-100 mt-2">Advanced Chess Piece Recognition</p>
+            </div>
+
+            <!-- Main Content -->
+            <div class="p-6 md:p-8">
+                <div class="mb-8 text-center">
+                    <h2 class="text-2xl font-semibold text-gray-800">Upload Chess Piece Image</h2>
+                    <p class="text-gray-600 mt-2">Drag & drop or click to select an image</p>
+                </div>
+
+                <!-- Upload Area -->
+                <div id="uploadContainer" class="mb-8">
+                    <div id="uploadArea" class="upload-area rounded-lg p-8 text-center cursor-pointer">
+                        <div class="flex flex-col items-center justify-center space-y-4">
+                            <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-cloud-upload-alt text-3xl text-amber-600"></i>
+                            </div>
+                            <div>
+                                <p class="font-medium text-gray-700">Drag & drop your image here</p>
+                                <p class="text-sm text-gray-500 mt-1">or click to browse files</p>
+                            </div>
+                            <input type="file" id="fileInput" class="hidden" accept="image/*">
+                            <p class="text-xs text-gray-400">Supports: JPG, PNG, WEBP (Max 5MB recommended)</p>
+                        </div>
+                    </div>
+                    <!-- Removed the "Analyze" button from here -->
+                </div>
+
+                <!-- Preview and Result Area -->
+                <!-- Changed to flex-col on all screen sizes for better stacking -->
+                <div id="previewContainer" class="hidden mb-8">
+                    <div class="flex flex-col gap-6 items-center">
+                        <!-- Image Preview -->
+                        <div class="w-full">
+                             <h3 class="text-lg font-medium text-gray-700 mb-3 text-center">Your Image</h3>
+                            <div class="bg-gray-100 rounded-lg overflow-hidden border border-gray-200 flex justify-center items-center p-2">
+                                <img id="imagePreview" src="" alt="Preview" class="w-auto h-auto object-contain">
+                            </div>
+                        </div>
+                        <!-- Analysis Result -->
+                        <div class="w-full">
+                            <h3 class="text-lg font-medium text-gray-700 mb-3 text-center">Analysis Result</h3>
+                            <div id="resultContainer" class="result-card rounded-lg p-6 shadow-inner min-h-[150px] flex items-center justify-center">
+                                <!-- Initial content (will be replaced by loading/result) -->
+                                <div class="flex flex-col items-center justify-center h-full text-center">
+                                    <i class="fas fa-chess text-5xl text-amber-600 mb-4 chess-piece-icon"></i>
+                                    <p class="text-gray-500">Analyzing image...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-center space-x-4">
+                        <!-- Removed the second "Analyze" button -->
+                        <button id="newUploadBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-3 px-5 rounded-lg transition-all">
+                            <i class="fas fa-redo mr-2"></i>New Upload
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- Optional: Add footer -->
+             <div class="bg-gray-100/50 text-center p-4 text-sm text-gray-600">
+                Developed using Flask and TensorFlow
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('fileInput');
+            const uploadArea = document.getElementById('uploadArea');
+            const uploadContainer = document.getElementById('uploadContainer');
+            const previewContainer = document.getElementById('previewContainer');
+            const imagePreview = document.getElementById('imagePreview');
+            const resultContainer = document.getElementById('resultContainer');
+            const newUploadBtn = document.getElementById('newUploadBtn');
+            const maxFileSize = 5 * 1024 * 1024; // 5MB
+
+            let uploadedFile = null; // Store the uploaded file object
+
+
+            // Piece data for display (icons, info)
+            const pieceDisplayInfo = {
+                'King': { icon: 'fa-chess-king', color: 'text-yellow-600', info: 'The most important piece. Moves one square in any direction.' },
+                'Queen': { icon: 'fa-chess-queen', color: 'text-purple-600', info: 'The most powerful piece. Moves any number of squares diagonally, horizontally, or vertically.' },
+                'Rook': { icon: 'fa-chess-rook', color: 'text-red-600', info: 'Moves any number of squares horizontally or vertically.' },
+                'Bishop': { icon: 'fa-chess-bishop', color: 'text-blue-600', info: 'Moves any number of squares diagonally.' },
+                'Knight': { icon: 'fa-chess-knight', color: 'text-green-600', info: 'Moves in an L-shape: two squares in one direction then one square perpendicular.' },
+                'Pawn': { icon: 'fa-chess-pawn', color: 'text-gray-600', info: 'Moves forward one square, captures diagonally.' },
+                'Unknown Piece': { icon: 'fas fa-question-circle', color: 'text-gray-500', info: 'Could not identify the chess piece.'}
+            };
+
+            // Drag and drop functionality
+            uploadArea.addEventListener('click', () => fileInput.click());
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                if (e.dataTransfer.files.length) {
+                    // Only handle the first file if multiple are dropped
+                    handleFileUpload(e.dataTransfer.files[0]);
+                }
+            });
+
+            // Handle file selection via input
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length) {
+                    handleFileUpload(e.target.files[0]);
+                }
+            });
+
+            // Handle file upload, preview, and trigger analysis
+            function handleFileUpload(file) {
+                if (!file.type.match('image.*')) {
+                    showError('Please upload an image file.');
+                     // Stay on the upload screen
+                    return;
+                }
+
+                if (file.size > maxFileSize) {
+                    showError(`File size exceeds the maximum limit of ${maxFileSize / 1024 / 1024}MB.`);
+                    // Stay on the upload screen
+                    return;
+                }
+
+                uploadedFile = file; // Store the file for sending later
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    uploadContainer.classList.add('hidden');
+                    previewContainer.classList.remove('hidden');
+                    // Display initial "Analyzing..." message
+                    showAnalyzingState();
+                    // Automatically send file for prediction
+                    sendFileForPrediction();
+                };
+                reader.readAsDataURL(file); // Read file as Data URL for preview
+            }
+
+             // Display the "Analyzing..." state
+            function showAnalyzingState() {
+                 resultContainer.innerHTML = `
+                    <div class="text-center animate-pulse">
+                        <i class="fas fa-spinner fa-spin text-5xl text-amber-600 mb-4"></i>
+                        <p class="text-gray-600">Analyzing image...</p>
+                    </div>
+                `;
+            }
+
+
+            // Function to send file to backend for prediction
+            async function sendFileForPrediction() {
+                if (!uploadedFile) {
+                    // This shouldn't happen if handleFileUpload logic is followed, but as a safeguard
+                    showError('Error: No image file available for analysis.');
+                    return;
+                }
+
+                const formData = new FormData();
+                // 'file' must match the key used in Flask: request.files['file']
+                formData.append('file', uploadedFile);
+
+                try {
+                    // Send POST request to the Flask route
+                    const response = await fetch('/', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    // Flask returns JSON, parse it
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                         // If response status is not 2xx, it's an HTTP error
+                         // Flask likely returned JSON with an 'error' key for non-2xx status
+                         const errorMessage = data.error || `HTTP error! status: ${response.status}`;
+                         showError(errorMessage);
+                    } else {
+                         // If response status is 2xx (e.g., 200 OK)
+                        if (data.error) {
+                            // Flask returned JSON indicating an application-level error
+                            showError(data.error);
+                        } else if (data.prediction) {
+                            // Flask returned JSON with the prediction
+                            displayPrediction(data.prediction);
+                        } else {
+                             // Unexpected successful response format
+                             showError('Unexpected response format from server.');
+                        }
+                    }
+
+                } catch (error) {
+                    // Handle network errors, fetch issues, etc.
+                    console.error('Error during fetch:', error);
+                    showError(`Network error or failed request: ${error.message}`);
+                }
+            }
+
+            // Function to display the prediction received from Flask
+            function displayPrediction(pieceName) {
+                // Find the info for the predicted piece, default to 'Unknown Piece' if not found
+                const piece = pieceDisplayInfo[pieceName] || pieceDisplayInfo['Unknown Piece'];
+
+                resultContainer.innerHTML = `
+                    <div class="text-center">
+                        <i class="${piece.icon} ${piece.color} text-6xl mb-4 chess-piece-icon"></i>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-1">${pieceName}</h3>
+                        <!-- Confidence score could be added here if provided by the backend -->
+                        <!-- <p class="text-gray-600">Confidence: XX%</p> -->
+                        <div class="mt-4 bg-amber-50 rounded-lg p-3 text-sm text-amber-800">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            ${piece.info}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Show error message
+            function showError(message) {
+                resultContainer.innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-exclamation-triangle text-red-500 text-5xl mb-4"></i>
+                        <h3 class="text-xl font-medium text-red-600 mb-2">Error</h3>
+                        <p class="text-gray-600">${message}</p>
+                    </div>
+                `;
+            }
+
+            // Reset upload area state
+            function resetUploadArea() {
+                fileInput.value = ''; // Clear the file input element
+                uploadedFile = null; // Clear the stored file object
+                uploadContainer.classList.remove('hidden'); // Show upload area
+                previewContainer.classList.add('hidden'); // Hide preview/result area
+                // Reset the initial text in the result container
+                resultContainer.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-center">
+                        <i class="fas fa-chess text-5xl text-amber-600 mb-4 chess-piece-icon"></i>
+                        <p class="text-gray-500">Upload an image to identify the chess piece</p>
+                    </div>
+                `;
+            }
+
+
+            // Button event listeners
+            newUploadBtn.addEventListener('click', resetUploadArea);
+
+            // Initial state setup
+            resetUploadArea(); // Ensure the UI starts in the correct state
+        });
+    </script>
+</body>
+</html>
